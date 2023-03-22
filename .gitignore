@@ -2,3 +2,6 @@ token_cache.json
 synk_creds.py
 .venv
 .venv/
+.env
+*.json
+__pycache__

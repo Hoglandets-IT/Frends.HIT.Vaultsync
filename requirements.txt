@@ -1,0 +1,4 @@
+hvac
+hvac[parser]
+requests
+python-dotenv

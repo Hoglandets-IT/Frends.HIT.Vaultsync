@@ -1,22 +1,87 @@
 import requests
 import json
+from datetime import datetime
 from azure import AzureToken
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
+from enum import Enum
+from typing import List
+
+# class FrendsEnvironmentVariableType(Enum):
+#     OBJECT = 'Object'
+#     STRING = 'String'
+#     ARRAY = 'Array'
+#     SECRET = 'Secret'
+#     NUMBER = 'Number'
+#     BOOLEAN = 'Boolean'
+
+@dataclass_json
+@dataclass
+class FrendsEnvironmentBase:
+    id: int
+    displayName: str
+
+@dataclass_json
+@dataclass
+class FrendsEnvironmentVariableValue:
+    environment: FrendsEnvironmentBase
+    value: str
+    modifiedUtc: str = None
+    modifier: str = None
+    version: int = None
+
+@dataclass_json
+@dataclass
+class FrendsEnvironmentVariable:
+    id: int
+    name: str
+    type: str
+    description: str = None
+    valuesJson: str = None
+    childSchemasJson: str = None
+    values: List[FrendsEnvironmentVariableValue] = None
+    childSchemas: List["FrendsEnvironmentVariable"] = None
+    
+    def __post_init__(self):
+        if self.childSchemasJson is not None:
+            self.childSchemas = []
+            
+            for item in self.childSchemasJson:
+                item['valuesJson'] = item.pop('values')
+                
+                self.childSchemas.append(FrendsEnvironmentVariable.from_json(json.dumps(item)))
+                
+        if self.valuesJson is not None:
+            self.values = [FrendsEnvironmentVariableValue.from_json(json.dumps(x)) for x in self.valuesJson]
+        
+
+    def __str__(self):
+        return f"{self.__class__.__name__}({self.name}))"
+    
+    def __repr__(self):
+        return repr(self.__str__())
 
 class FrendsClient:
     def __init__(self, url: str, token: AzureToken):
         self.url = url
         self.token = token
-        self.headers = {
-            # 'Authorization': token.get_header(),
-            'Content-Type':  'application/json'
-        }
 
-    def list_env(self):
+    def list_env(self, page_number: int = 1, page_size: int = 200):
         print("Requesting url " + self.url + '/environment-variables')
-        req = requests.get('https://hoglandet.frendsapp.com/api/v0.9/environment-variables?api_key='+self.token.access_token, headers=self.headers)
+        req = requests.get(f'{self.url}/environment-variables?pagingQuery.pageNumber={page_number}&pagingQuery.pageSize={page_size}', headers=self.token.get_headers())
         
         if req.status_code == 200:
             res = req.json()
+            vars = {}
+            no_duplicate = []
+            for envv in res['data']:
+                if len(envv['childSchemas']) > 0:
+                    envv['childSchemasJson'] = envv.pop('childSchemas')
+                    envv['valuesJson'] = envv.pop('values')
+
+                    envvar = FrendsEnvironmentVariable.from_json(json.dumps(envv))
+                    vars[envvar.name] = envvar
+                
             return res
 
         print("Hold")

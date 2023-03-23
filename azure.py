@@ -4,41 +4,30 @@ from dataclasses import dataclass
 import requests
 import json
 
+@dataclass
 class AzureToken:
     token_type: str
     expires_in: int
     ext_expires_in: int
+    expires_on: str
+    not_before: str
+    resource: str
     access_token: str
-    expires_at: int = None
     cache_path: str = None
     
-    def __init__(   self, token_type: str, expires_in: int, 
-                    ext_expires_in: int, access_token: str, 
-                    expires_at: int = None, cache_path: str = None 
-        ):
-        self.token_type = token_type
-        self.expires_in = expires_in
-        self.ext_expires_in = ext_expires_in
-        self.access_token = access_token
-        self.expires_at = expires_at
-        self.cache_path = cache_path
-
-
     def is_valid(self):
+        now = datetime.now().timestamp()
+        
         print("checking validity")
-        if self.expires_at is None:
-            print("expires_at not set")
+        if self.access_token is None or self.expires_on is None:
+            print("expires_at not set or token missing")
             return False
 
-        if self.expires_at < datetime.now().timestamp():
+        if int(self.expires_on) < now:
             print("has expired")
             return False
         
-        if self.access_token in [None, "", 0, False]:
-            print("access token empty")
-            return False
-        
-        print("authenticated")
+        print("successfully authenticated")
         return True
 
     def save_cache(self):
@@ -80,16 +69,22 @@ class AzureToken:
 
         raise Exception("Edge case")
 
-    def get_header(self):
-        return "Authorization: " + self.token_type + " " + self.access_token
+    def get_key(self):
+        return "?api_key" + self.token_type + " " + self.access_token
+
+    def get_headers(self):
+        return {
+            "Authorization": " ".join((self.token_type, self.access_token)),
+            "Accept": "application/json"
+        }
 
     @classmethod
     def from_request(cls, tenant: str, azure_args: dict, cache_path: str = None):
         print("requesting new token")
-        azure_args['scope'] = "https://management.azure.com/.default"
         azure_args['grant_type'] = "client_credentials"
+        azure_args['scope'] = azure_args["resource"]
         req = requests.post(
-            "https://login.microsoftonline.com/" + tenant + ".onmicrosoft.com/oauth2/v2.0/token", 
+            "https://login.microsoftonline.com/" + tenant + ".onmicrosoft.com/oauth2/token", 
             data = azure_args
         )
         
@@ -99,7 +94,6 @@ class AzureToken:
 
         print("creating token objects")
         token = req.json()
-        token['expires_at'] = int(datetime.now().timestamp() + token['expires_in'] - 100)
         
         if cache_path:
             print("saving token to cache")

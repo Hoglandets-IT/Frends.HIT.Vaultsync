@@ -2,3 +2,5 @@ hvac
 hvac[parser]
 requests
 python-dotenv
+dataclasses
+dataclasses_json

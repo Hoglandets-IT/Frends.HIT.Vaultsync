@@ -1,7 +1,6 @@
 import requests
 import json
 import re
-import hvac
 from datetime import datetime
 from dotenv import load_dotenv
 import os

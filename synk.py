@@ -11,13 +11,6 @@ from vault import VaultKVClient
 
 load_dotenv()
 
-def fmt_str(string: str):
-    # Identify all characters except for letters, numbers and underscore
-    rgx = re.compile(r"[^a-zA-Z0-9_]")
-    
-    # Return uppercase name special characters replaced by underscore
-    return rgx.sub("_", string).upper()
-
 class Sync:
     frends_url: str
     vault_address: str
@@ -73,10 +66,38 @@ class Sync:
         
         self.frends_client = FrendsClient(self.frends_url, self.azure_token)
 
+    def flatten_tree(self, namespaced: dict):
+        flat = {}
+        for key, value in namespaced.items():
+            if any([isinstance(child, dict) for child in value.values()]):
+                flat = {**flat, **{ f'{key}_{subkey}': value for subkey, value in self.flatten_tree(value).items() }}
+            else:
+                flat[key] = value
+        
+        return flat
+            
+        
+    def namespaced_to_flat_json(self, namespaced: dict):
+        top_level = namespaced.keys()
+        flat = {}
+        for variable in top_level:
+            flat[variable] = { 
+                key: json.dumps(value) 
+                for key, value in 
+                self.flatten_tree(namespaced[variable]).items()
+            }
+        
+        return flat
+
 if __name__ == '__main__':
     sync = Sync()
     sync.login()
-    print(sync.frends_client.list_env())
+    current_env = sync.frends_client.list_env()
+    namespaced = sync.vault_client.list_secrets_recursive('')
+    flat = sync.namespaced_to_flat_json(namespaced)
+    
+    
+    
     print("Hold")
 
 # client = hvac.Client()

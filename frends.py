@@ -7,14 +7,6 @@ from dataclasses_json import dataclass_json
 from enum import Enum
 from typing import List
 
-# class FrendsEnvironmentVariableType(Enum):
-#     OBJECT = 'Object'
-#     STRING = 'String'
-#     ARRAY = 'Array'
-#     SECRET = 'Secret'
-#     NUMBER = 'Number'
-#     BOOLEAN = 'Boolean'
-
 @dataclass_json
 @dataclass
 class FrendsEnvironmentBase:
@@ -72,16 +64,17 @@ class FrendsClient:
         
         if req.status_code == 200:
             res = req.json()
-            vars = {}
-            no_duplicate = []
+            envvars = {}
+            
             for envv in res['data']:
                 if len(envv['childSchemas']) > 0:
                     envv['childSchemasJson'] = envv.pop('childSchemas')
                     envv['valuesJson'] = envv.pop('values')
 
                     envvar = FrendsEnvironmentVariable.from_json(json.dumps(envv))
-                    vars[envvar.name] = envvar
+                    envvars[envvar.name] = envvar
                 
-            return res
+            return envvars
+        raise Exception("An error occured")
 
         print("Hold")

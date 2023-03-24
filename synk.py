@@ -24,6 +24,8 @@ class Sync:
     frends_client: FrendsClient = None
     vault_client: VaultKVClient = None
     
+    debug_mode: bool = False
+    
 
     @staticmethod
     def env_var(env: str, required: bool = False):
@@ -49,6 +51,13 @@ class Sync:
         self.vault_store = self.env_var('VAULT_STORE', True)
         
         self.frends_url = self.env_var('FRENDS_API_URL', True)
+        
+        if isinstance(self.env_var('DEBUG_MODE', False), str) and self.env_var('DEBUG_MODE', False).lower() in ['true', '1', 'yes']:
+            print("\033[31m!!!! WARNING: Debug mode is enabled !!!!")
+            print("All secrets WILL BE TRANSFERRED IN CLEAR TEXT FORM")
+            print("After disabling debug mode, all secrets need to be deleted and re-synced\033[0m")
+            
+            self.debug_mode = True 
         
     def login(self):
         self.azure_token = AzureToken.from_cache(
@@ -95,25 +104,45 @@ class Sync:
             
             if frends is None:
                 envid = self.frends_client.create_env_group(toplevel)
-            
-            self.frends_client.set_env_description(
-                getattr(frends, "id", None) or envid,
-                'Automatically synced from Vault'
-            )
-            
+            try:
+                self.frends_client.set_env_description(
+                    getattr(frends, "id", None) or envid,
+                    'Automatically synced from Vault'
+                )
+            except Exception:
+                pass
+
             for key, value in items.items():
+                # Check if there are multiple fields in the json or just one
+                fields = json.loads(value)
+                if len(fields) == 1 and isinstance(fields, dict):
+                    value = fields[list(fields.keys())[0]]
+
+                var_type = "Secret"
+                
+                if self.debug_mode is True:
+                    print("\033[31m!!!! WARNING: Debug mode is enabled !!!!")
+                    print("All secrets WILL BE TRANSFERRED IN CLEAR TEXT FORM")
+                    print("After disabling debug mode, all secrets need to be deleted and re-synced\033[0m")
+                    
+                    var_type = "String"
+
                 self.frends_client.insert_update_env(
                     parent=getattr(frends, "id", None) or envid,
                     name=key,
-                    content=value
+                    content=value,
+                    var_type=var_type
                 )
 
 if __name__ == '__main__':
     sync = Sync()
     sync.login()
-    namespaced = sync.vault_client.list_secrets_recursive()
-    flat = sync.namespaced_to_flat_json(namespaced)
     
+    # Retrieve namespaced recursive list of secrets in the Vault KV store
+    namespaced = sync.vault_client.list_secrets_recursive()
+    
+    # Flatten the namespaces to turn SMB/SERVER/ACCOUNT into SMB.SERVER_ACCOUNT
+    flat = sync.namespaced_to_flat_json(namespaced)
     sync.update_frends(flat)
     
     print("Finished!")

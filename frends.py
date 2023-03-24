@@ -127,7 +127,7 @@ class FrendsClient:
 
         raise Exception("Error occured", req.status_code, req.text)
 
-    def insert_update_env(self, parent: int, name: str, content: str, only_env: list = None):
+    def insert_update_env(self, parent: int, name: str, content: str, only_env: list = None, var_type: str = "Secret"):
         check = self.get_env(name)
         
         # Create if not present
@@ -136,7 +136,7 @@ class FrendsClient:
                 f'/environment-variables/{parent}',
                 requests.post,
                 {
-                    "type": "String",
+                    "type": var_type,
                     "name": name,
                 }
             )

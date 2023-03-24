@@ -88,75 +88,32 @@ class Sync:
             }
         
         return flat
+    
+    def update_frends(self, vault: dict):
+        for toplevel, items in vault.items():
+            frends = self.frends_client.get_env(toplevel)
+            
+            if frends is None:
+                envid = self.frends_client.create_env_group(toplevel)
+            
+            self.frends_client.set_env_description(
+                getattr(frends, "id", None) or envid,
+                'Automatically synced from Vault'
+            )
+            
+            for key, value in items.items():
+                self.frends_client.insert_update_env(
+                    parent=getattr(frends, "id", None) or envid,
+                    name=key,
+                    content=value
+                )
 
 if __name__ == '__main__':
     sync = Sync()
     sync.login()
-    current_env = sync.frends_client.list_env()
-    namespaced = sync.vault_client.list_secrets_recursive('')
+    namespaced = sync.vault_client.list_secrets_recursive()
     flat = sync.namespaced_to_flat_json(namespaced)
     
+    sync.update_frends(flat)
     
-    
-    print("Hold")
-
-# client = hvac.Client()
-# client.token = config.vault_token
-# client.url = config.vault_address
-
-# assert client.is_authenticated()
-
-# token = None
-
-# if config.azure_token_cache and config.azure_token_cache != "":
-#     if not os.path.isfile(config.azure_token_cache):
-#         with open(config.azure_token_cache, 'w') as f:
-#             f.write('{}')
-
-#     with open(config.azure_token_cache, 'r') as f:
-#         token = json.load(f)
-
-# if not isinstance(token, dict) or token.get('expires_at', 0) < datetime.now().timestamp():
-#     tenant = config.azure_tenant
-#     azauth = {
-#         "client_id": config.azure_client_id,
-#         "audience": config.azure_audience,
-#         "scope": "https://graph.microsoft.com/.default",
-#         "client_secret": config.azure_client_secret,
-#         "grant_type": "client_credentials"
-#     }
-#     token_req = requests.post("https://login.microsoftonline.com/" + tenant + ".onmicrosoft.com/oauth2/v2.0/token", data = azauth)
-    
-#     if token_req.status_code == 200:
-#         token = token_req.json()
-#         token['expires_at'] = int(datetime.now().timestamp() + token_req.json()['expires_in'])
-
-# if os.path.isfile(config.azure_token_cache):
-#     with open(config.azure_token_cache, 'w') as f:
-#         json.dump(token, f)
-
-# frurl = "https://hoglandet.frendsapp.com/api/v1/"
-
-# secret_list = {}
-
-# # Get a list of secrets from vault
-# types = client.secrets.kv.v2.list_secrets(mount_point=config.vault_store, path="")
-
-# for credtype in types['data']['keys']:
-#     servers = client.secrets.kv.v2.list_secrets(mount_point=config.vault_store, path=credtype)
-#     secret_list[fmt_str(credtype)] = secret_list.get(fmt_str(credtype), {})
-    
-#     for server in servers['data']['keys']:
-#         accounts = client.secrets.kv.v2.list_secrets(mount_point=config.vault_store, path=os.path.join(credtype, server))
-        
-#         for account in accounts['data']['keys']:
-#             content = client.secrets.kv.v2.read_secret(mount_point=config.vault_store, path=''.join((credtype, server, account)))
-            
-#             fr_accountname = account
-#             fr_content = content.get('data', {}).get('data', None)
-            
-#             if isinstance(fr_content, dict) and fr_content.get('connectiontype', False):
-#                 if fr_content.get('domain', False):
-#                     fr_accountname = f"{fr_content['domain']}_{fr_accountname}"
-#                 fr_content['password'] = ""
-#                 secret_list[fmt_str(credtype)][fmt_str(''.join((server, fr_accountname)))] = content['data']['data']
+    print("Finished!")

@@ -21,7 +21,7 @@ class VaultKVClient:
     """Client for accessing Hashicorp Vault"""
 
     def __init__(self, vault_url: str, vault_token: str, mountpoint: str):
-        self.client = hvac.Client()
+        self.client = hvac.Client(verify=False)
         self.client.url = vault_url
         self.client.token = vault_token
         self.mountpoint = mountpoint
